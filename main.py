@@ -211,3 +211,49 @@ plt.show()
 
 print("Top 3 languages by traffic:\n", avg_by_lang.head(3))
 print("\n Lowest 3 languages by traffic:\n", avg_by_lang.tail(3))
+
+# Outliers Detection
+
+lang_daily = (train.loc[~train["lang"].isin(NON_LANGUAGE_BUCKETS)].groupby("lang")[date_cols].sum().T)
+lang_daily.index = pd.to_datetime(lang_daily.index)
+
+fix, axes = plt.subplots(1, 2, figsize=(16, 5))
+sns.boxplot(data=np.log1p(lang_daily), ax=axes[0])
+axes[0].set_title("Log(1+Views) Distribution by Language (Boxplot)")
+axes[0].tick_params(axis="x", rotation=45)
+
+top_lang = avg_by_lang.index[0]
+sns.histplot(lang_daily[top_lang], kde=True, ax=axes[1], color="purple")
+axes[1].set_title(f"Distribution of Daily Views — '{top_lang}'")
+plt.tight_layout()
+plt.show()
+
+def iqr_outlier_bounds(series: pd.Series, k:float = 1.5) -> tuple:
+  q1, q3 = series.quantile([0.25, 0.75])
+  iqr = q3 - q1
+  return q1 - k * iqr, q3 + k * iqr
+
+low, high = iqr_outlier_bounds(lang_daily[top_lang])
+n_outliers = ((lang_daily[top_lang] < low) | (lang_daily[top_lang] > high)).sum()
+print(f"IQR outlier bounds for '{top_lang}':[{low:.0f}, {high:.0f}] -> {n_outliers} outlier days")
+
+# Data Transformation
+
+# Demonstrate melt on a manageable sample (illustrates wide -> long technique)
+sample_for_melt = train.sample(500, random_state=RANDOM_STATE)
+long_sample = sample_for_melt.melt(
+    id_vars=["Page", "name", "lang", "access", "origin"],
+    value_vars=date_cols,
+    var_name="date",
+    value_name="views",
+)
+long_sample["date"] = pd.to_datetime(long_sample["date"])
+print("Long-format sample shape:", long_sample.shape)
+display(long_sample.head())
+
+# Efficient full-scale aggregation to the language grain (equivalent to melt+pivot, but avoids materializing an ~80M-row long dataframe)
+lang_pivot = (train.loc[~train["lang"].isin(NON_LANGUAGE_BUCKETS)]
+              .groupby("lang")[date_cols].sum().T)
+lang_pivot.index = pd.to_datetime(lang_pivot.index)
+lang_pivot = lang_pivot.sort_index().asfreq("D")  # enforce daily frequency, exposes gaps
+display(lang_pivot.head())
