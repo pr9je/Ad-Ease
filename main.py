@@ -170,3 +170,44 @@ plt.show()
 
 # Access Type & Access Origin Distribution
 
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+train["access"].value_counts().plot(kind="bar", ax=axes[0], color="darkorange")
+axes[0].set_title("Access Type Distribution (Desktop / mobile-web / all-access)")
+axes[0].set_xlabel("Access Type"); axes[0].set_ylabel("Page Count")
+
+train["origin"].value_counts().plot(kind="bar", ax=axes[1], color="seagreen")
+axes[1].set_title("Access Origin Distribution (spider vs browser agent)")
+axes[1].set_xlabel("Access Origin"); axes[1].set_ylabel("Page Count")
+plt.tight_layout()
+plt.show()
+
+# Daily Total Views (All pages, all languages)
+daily_total = train[date_cols].sum(axis=0)
+daily_total.index = pd.to_datetime(daily_total.index)
+
+plt.figure(figsize=(14, 5))
+daily_total.plot()
+plt.title("Total Wikipedia Page Views - All Pages, All Languages")
+plt.xlabel("Date"); plt.ylabel("Total Views")
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+growth = (daily_total.iloc[-30:].mean() / daily_total.iloc[:30].mean() -1) *100
+volatility = daily_total.pct_change().std() * 100
+print(f"Growth (last 30d avg vs first 30d avg): {growth:.1f}%")
+print(f"Day-over-day volatility (std of pct change): {volatility:.2f}%")
+
+
+# Average Views by Language
+avg_by_lang = (train.loc[~train["lang"].isin(NON_LANGUAGE_BUCKETS)].groupby("lang")[date_cols].sum().sum(axis=1).sort_values(ascending=False))
+
+plt.figure(figsize=(12, 5))
+avg_by_lang.plot(kind='bar', color='teal')
+plt.title("Total Views by Language (entire period)")
+plt.xlabel("Language"); plt.ylabel("Total Views")
+plt.tight_layout()
+plt.show()
+
+print("Top 3 languages by traffic:\n", avg_by_lang.head(3))
+print("\n Lowest 3 languages by traffic:\n", avg_by_lang.tail(3))
