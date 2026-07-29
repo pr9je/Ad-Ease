@@ -29,6 +29,7 @@ campaign indicator (exogenous variable) to quantify campaign lift.
   protect against under-serving high-traffic ones, directly improving ROI for clients
   and retention for Ad Ease.
 
+  
 **Expected business impact:** a forecasting pipeline with MAPE in the 4–8% range is
 accurate enough to support automated bidding/placement decisions and campaign scheduling
 recommendations with confidence.
