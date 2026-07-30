@@ -273,3 +273,16 @@ def plot_series_with_rolling(series: pd.Series, title: str, windows=(7, 30)):
     plt.legend(); plt.grid(alpha=0.3)
     plt.tight_layout()
     plt.show()
+
+top_langs = avg_by_lang.head(4).index.tolist()
+
+plt.figure(figsize=(14, 6))
+for lang in top_langs:
+    plt.plot(lang_pivot.index, lang_pivot[lang], label=lang)
+plt.title("Daily Views — Top 4 Languages Overlaid")
+plt.xlabel("Date"); plt.ylabel("Views"); plt.legend()
+plt.tight_layout()
+plt.show()
+
+for lang in top_langs[:2]:
+    plot_series_with_rolling(lang_pivot[lang], f"'{lang}' Views with 7d/30d Rolling Mean")
