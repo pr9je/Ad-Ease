@@ -257,3 +257,19 @@ lang_pivot = (train.loc[~train["lang"].isin(NON_LANGUAGE_BUCKETS)]
 lang_pivot.index = pd.to_datetime(lang_pivot.index)
 lang_pivot = lang_pivot.sort_index().asfreq("D")  # enforce daily frequency, exposes gaps
 display(lang_pivot.head())
+
+
+
+# Time Series Visualization
+
+# Plot a series with weekly/monthly rolling means overlaid.
+def plot_series_with_rolling(series: pd.Series, title: str, windows=(7, 30)):
+    plt.figure(figsize=(14, 5))
+    plt.plot(series, label="Daily", alpha=0.4)
+    for w in windows:
+        plt.plot(series.rolling(w).mean(), label=f"{w}-day rolling mean")
+    plt.title(title)
+    plt.xlabel("Date"); plt.ylabel("Views")
+    plt.legend(); plt.grid(alpha=0.3)
+    plt.tight_layout()
+    plt.show()
