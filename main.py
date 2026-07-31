@@ -286,3 +286,40 @@ plt.show()
 
 for lang in top_langs[:2]:
     plot_series_with_rolling(lang_pivot[lang], f"'{lang}' Views with 7d/30d Rolling Mean")
+
+
+# Stationarity Tests
+
+def run_stationarity_tests(series: pd.Series, name: str = "series") -> dict:
+    """Run ADF + KPSS and return a summary dict."""
+    series = series.dropna()
+    adf_stat, adf_p, *_ = adfuller(series, autolag="AIC")
+    kpss_stat, kpss_p, *_ = kpss(series, regression="c", nlags="auto")
+    result = {
+        "name": name,
+        "adf_stat": adf_stat, "adf_p": adf_p,
+        "adf_stationary": adf_p < 0.05,
+        "kpss_stat": kpss_stat, "kpss_p": kpss_p,
+        "kpss_stationary": kpss_p > 0.05,
+    }
+    print(f"[{name}] ADF p={adf_p:.4f} (stationary={result['adf_stationary']}) | "
+          f"KPSS p={kpss_p:.4f} (stationary={result['kpss_stationary']})")
+    return result
+
+target_lang = top_langs[0]
+series = lang_pivot[target_lang].interpolate()
+
+_ = run_stationarity_tests(series, f"{target_lang} - raw")
+
+d = 0
+diff_series = series.copy()
+while True:
+    res = run_stationarity_tests(diff_series, f"{target_lang} - diff order {d}")
+    if res["adf_stationary"] and res["kpss_stationary"]:
+        break
+    d += 1
+    diff_series = series.diff(d).dropna()
+    if d > 3:
+        break
+
+print(f"\nStationarity achieved at differencing order d={d}")
