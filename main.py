@@ -373,5 +373,6 @@ def seasonal_naive_forecast(train: pd.Series, horizon: int, season: int = 7) -> 
 
 baselines = {
     "Naive": naive_forecast(train_series, TEST_DAYS),
-    "Moving Average": moving_average_forecast(train_series, TEST_DAYS)
+    "Moving Average (7d)": moving_average_forecast(train_series, TEST_DAYS),
+    "Seasonal Naive (7d)": seasonal_naive_forecast(train_series,TEST_DAYS)
 }
