@@ -358,3 +358,20 @@ print(f"Train range: {train_series.index.min().date()} -> {train_series.index.ma
       f"({len(train_series)} days)")
 print(f"Test range : {test_series.index.min().date()} -> {test_series.index.max().date()} "
       f"({len(test_series)} days)")
+
+# Baseline Models:
+def naive_forecast(train: pd.Series, horizon: int) -> np.ndarray:
+  return np.repeat(train.iloc[-1], horizon)
+
+def moving_average_forecast(train: pd.Series, horizon: int, window: int =7) -> np.ndarray:
+  return np.repeat(train.iloc[-window:].mean(), horizon)
+
+def seasonal_naive_forecast(train: pd.Series, horizon: int, season: int = 7) -> np.ndarray:
+    last_cycle = train.iloc[-season:].values
+    reps = int(np.ceil(horizon / season))
+    return np.tile(last_cycle, reps)[:horizon]
+
+baselines = {
+    "Naive": naive_forecast(train_series, TEST_DAYS),
+    "Moving Average": moving_average_forecast(train_series, TEST_DAYS)
+}
