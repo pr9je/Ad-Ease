@@ -337,3 +337,13 @@ def plot_decomposition(series: pd.Series, model: str, period: int =7, title: str
 
 decomp_add = plot_decomposition(series, "additive", period=7, title=target_lang)
 decomp_mul = plot_decomposition(series, "multiplicative", period=7, title=target_lang)
+
+# ACF and PACF
+fig, axes = plt.subplots(1, 2, figsize=(16, 4))
+plot_pacf(series.dropna(), lags=30, ax=axes[0], method='ywm')
+axes[0].set_title(f"PACF (raw) - {target_lang}")
+
+plot_acf(diff_series.dropna(), lags=30, ax=axes[1])
+axes[1].set_title(f"ACF (differnced, d={d}) - {target_lang}")
+plt.tight_layout()
+plt.show()
