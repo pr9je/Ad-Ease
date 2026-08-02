@@ -376,3 +376,5 @@ baselines = {
     "Moving Average (7d)": moving_average_forecast(train_series, TEST_DAYS),
     "Seasonal Naive (7d)": seasonal_naive_forecast(train_series,TEST_DAYS)
 }
+
+# Reusable Evaluation Helper
