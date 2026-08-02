@@ -378,3 +378,18 @@ baselines = {
 }
 
 # Reusable Evaluation Helper
+# Compute MAE, RMSE, MAPE, R^2, for a forecast and return a dict row
+def evaluate_forecast(y_true: pd.Series, y_pred: np.ndarray, model_name:str) -> dict:
+  y_true = np.asarray(y_true)
+  y_pred = np.asarray(y_pred)
+  mae = mean_absolute_error(y_true, y_pred)
+  rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+  mape = np.mean(np.abs((y_true - y_pred) / np.where(y_true == 0, 1, y_true ))) * 100
+  r2 = r2_score(y_true, y_pred)
+  return {'model': model_name, 'MAE': mae, 'RMSE': rmse, 'MAPE':mape, "R2": r2 }
+
+results = []
+for name, preds in baselines.items():
+  results.append(evaluate_forecast(test_series, preds, name))
+
+pd.DataFrame(results).round(3)
