@@ -347,3 +347,14 @@ plot_acf(diff_series.dropna(), lags=30, ax=axes[1])
 axes[1].set_title(f"ACF (differnced, d={d}) - {target_lang}")
 plt.tight_layout()
 plt.show()
+
+# Train-Test Split
+TEST_DAYS = 42 # 6 full weeks - multiple of the 7-days sesonal period.
+
+train_series = series.iloc[:-TEST_DAYS]
+test_series = series.iloc[-TEST_DAYS:]
+
+print(f"Train range: {train_series.index.min().date()} -> {train_series.index.max().date()} "
+      f"({len(train_series)} days)")
+print(f"Test range : {test_series.index.min().date()} -> {test_series.index.max().date()} "
+      f"({len(test_series)} days)")
