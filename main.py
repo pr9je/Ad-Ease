@@ -323,3 +323,17 @@ while True:
         break
 
 print(f"\nStationarity achieved at differencing order d={d}")
+
+
+# Time Series Decomposition
+def plot_decomposition(series: pd.Series, model: str, period: int =7, title: str=""):
+  decomp = seasonal_decompose(series.dropna(), model=model, period=period)
+  fig = decomp.plot()
+  fig.set_size_inches(14, 8)
+  fig.suptitle(f"{title} - {model.capitalize()} Decomposition", y=1.02, fontweight='bold')
+  plt.tight_layout()
+  plt.show()
+  return decomp
+
+decomp_add = plot_decomposition(series, "additive", period=7, title=target_lang)
+decomp_mul = plot_decomposition(series, "multiplicative", period=7, title=target_lang)
