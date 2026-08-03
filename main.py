@@ -478,3 +478,47 @@ plt.plot(eng_test.index, sarima_eng_fc, label="SARIMA (no campaign)", linestyle=
 plt.plot(eng_test.index, sarimax_eng_fc, label="SARIMAX (+ campaign)", linestyle="--")
 plt.title("English Views — Impact of Campaign Exogenous Variable")
 plt.legend(); plt.tight_layout(); plt.show()
+
+# Forecasting Across Multiple Languages / Region
+def forecast_language_arima(lang_pivot: pd.DataFrame, lang: str, test_days: int,
+                             p_range=range(0, 3), q_range=range(0, 3)) -> dict:
+    """Fit + forecast a per-language ARIMA model; returns forecast, actuals, metrics."""
+    s = lang_pivot[lang].interpolate()
+    tr, te = s.iloc[:-test_days], s.iloc[-test_days:]
+
+    # Determine differencing order for this specific language (each language's
+    # traffic can need a different d)
+    d_lang = 0
+    check = tr.copy()
+    while d_lang < 3:
+        p_adf = adfuller(check.dropna())[1]
+        if p_adf < 0.05:
+            break
+        d_lang += 1
+        check = tr.diff(d_lang).dropna()
+
+    order, model, _ = grid_search_arima(tr, p_range=p_range, d_range=[d_lang], q_range=q_range)
+    fc = model.forecast(steps=test_days)
+    metrics = evaluate_forecast(te, fc, f"ARIMA{order} - {lang}")
+    return {"lang": lang, "order": order, "d": d_lang, "train": tr, "test": te,
+            "forecast": fc, "metrics": metrics}
+
+ALL_LANGUAGES = sorted(set(lang_pivot.columns) - NON_LANGUAGE_BUCKETS)
+print("Languages to forecast:", ALL_LANGUAGES)
+
+multi_lang_results = [forecast_language_arima(lang_pivot, lang, TEST_DAYS) for lang in ALL_LANGUAGES]
+
+multi_lang_metrics = pd.DataFrame([r["metrics"] for r in multi_lang_results]).round(3)
+display(multi_lang_metrics)
+
+n = len(multi_lang_results)
+fig, axes = plt.subplots(n, 1, figsize=(14, 3 * n), sharex=False)
+axes = np.atleast_1d(axes)
+for ax, r in zip(axes, multi_lang_results):
+    ax.plot(r["train"].index[-60:], r["train"].iloc[-60:], label="Train (last 60d)", color="grey")
+    ax.plot(r["test"].index, r["test"], label="Actual", color="black")
+    ax.plot(r["test"].index, r["forecast"], label="Forecast", color="tab:red", linestyle="--")
+    ax.set_title(f"{r['lang']} — ARIMA{r['order']} (MAPE={r['metrics']['MAPE']:.1f}%)")
+    ax.legend(fontsize=8)
+plt.tight_layout()
+plt.show()
