@@ -424,3 +424,57 @@ plt.plot(test_series.index, test_series, label='Actual')
 plt.plot(test_series.index, arima_forecast, label=f"ARIMA{best_order} Forecast")
 plt.title(f"ARIMA Forcast - {target_lang}")
 plt.legend(); plt.tight_layout(); plt.show()
+
+# SARIMA
+def fit_sarima(train: pd.Series, order, seasonal_order):
+  return SARIMAX(
+      train, order=order, seasonal_order=seasonal_order,
+      enforce_stationarity=False,
+      enforce_invertibility=False,
+  ).fit(disp=False)
+
+seasonal_order = (1, 1, 1, 7) # weekly seasonality
+sarima_model = fit_sarima(train_series, order=best_order, seasonal_order=seasonal_order)
+sarima_forecast = sarima_model.forecast(steps=TEST_DAYS)
+
+results.append(evaluate_forecast(test_series, sarima_forecast, f"SARIMA{best_order}x{seasonal_order}"))
+
+plt.figure(figsize=(14, 5))
+plt.plot(train_series.index, train_series, label="Train")
+plt.plot(test_series.index, test_series, label="Actual")
+plt.plot(test_series.index, sarima_forecast, label="SARIMA Forecast")
+plt.title(f"SARIMA Forecast - {target_lang}")
+plt.legend(); plt.tight_layout(); plt.show()
+
+# SARIMAX 
+english_series = lang_pivot["en"].interpolate() if "en" in lang_pivot.columns else series
+
+# Exog_Campaign_eng has no date column of its own -- it is one flag per day, in the
+# same 550-day order as the date columns in train_1.csv, so we attach dates positionally.
+campaign_flags = campaign_eng.iloc[:, 0].values
+campaign_dates = pd.to_datetime(date_cols)
+campaign_series = pd.Series(campaign_flags, index=campaign_dates).reindex(english_series.index).fillna(0)
+
+eng_train, eng_test = english_series.iloc[:-TEST_DAYS], english_series.iloc[-TEST_DAYS:]
+camp_train, camp_test = campaign_series.iloc[:-TEST_DAYS], campaign_series.iloc[-TEST_DAYS:]
+
+# Without campaign (SARIMA on English)
+sarima_eng = fit_sarima(eng_train, order=best_order, seasonal_order=seasonal_order)
+sarima_eng_fc = sarima_eng.forecast(steps=TEST_DAYS)
+
+# With campaign (SARIMAX)
+sarimax_eng = SARIMAX(
+    eng_train, exog=camp_train, order=best_order, seasonal_order=seasonal_order,
+    enforce_stationarity=False, enforce_invertibility=False,
+).fit(disp=False)
+sarimax_eng_fc = sarimax_eng.forecast(steps=TEST_DAYS, exog=camp_test.values.reshape(-1, 1))
+
+results.append(evaluate_forecast(eng_test, sarima_eng_fc, "SARIMA (English, no campaign)"))
+results.append(evaluate_forecast(eng_test, sarimax_eng_fc, "SARIMAX (English + campaign)"))
+
+plt.figure(figsize=(14, 5))
+plt.plot(eng_test.index, eng_test, label="Actual", linewidth=2)
+plt.plot(eng_test.index, sarima_eng_fc, label="SARIMA (no campaign)", linestyle="--")
+plt.plot(eng_test.index, sarimax_eng_fc, label="SARIMAX (+ campaign)", linestyle="--")
+plt.title("English Views — Impact of Campaign Exogenous Variable")
+plt.legend(); plt.tight_layout(); plt.show()
