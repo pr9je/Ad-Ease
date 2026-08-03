@@ -394,35 +394,33 @@ for name, preds in baselines.items():
 
 pd.DataFrame(results).round(3)
 
-# Small grid search over (p,d,q), returns (best_order, best_model, results_df).
+# Small grid search over (p, d, q), return (best_order, best_model, results_df)
 
 def grid_search_arima(train: pd.Series, p_range, d_range, q_range):
-    rows = []
-    best_aic, best_order, best_model = np.inf, None, None
-    for p in p_range:
-        for d_ in d_range:
-            for q in q_range:
-                try:
-                    m = ARIMA(train, order=(p, d_, q)).fit()
-                    rows.append({"order": (p, d_, q), "aic": m.aic})
-                    if m.aic < best_aic:
-                        best_aic, best_order, best_model = m.aic, (p, d_, q), m
-                except Exception:
-                    continue
-    return best_order, best_model, pd.DataFrame(rows).sort_values("aic")
+  rows = []
+  best_aic, best_order, best_model = np.inf, None, None
 
-best_order, arima_model, arima_grid = grid_search_arima(
-    train_series, p_range=range(0, 4), d_range=[d], q_range=range(0, 4)
-)
-print("Best ARIMA order:", best_order, "| AIC:", arima_model.aic)
+  for p in p_range:
+    for d_ in d_range:
+      for q in q_range:
+        try:
+          m = ARIMA(train, order=(p, d_, q)).fit()
+          rows.append({"order": (p,d_,q), "aic": m.aic})
+          if m.aic < best_aic:
+            best_aic, best_order, best_model = m.aic, (p, d_, q), m
+        except Exception:
+          continue
+  return best_order, best_model, pd.DataFrame(rows).sort_values("aic")
 
-arima_forecast = arima_model.forecast(steps=TEST_DAYS)
+best_order, arima_model, arima_grid = grid_search_arima(train_series, p_range=(0, 4), d_range =[d], q_range = (0,4))
+print("Best ARIMA order: ", best_order, " | AIC:", arima_model.aic)
+
+arima_forecast = arima_model.forecast(TEST_DAYS)
 results.append(evaluate_forecast(test_series, arima_forecast, f"ARIMA{best_order}"))
 
 plt.figure(figsize=(14, 5))
-plt.plot(train_series.index, train_series, label="Train")
-plt.plot(test_series.index, test_series, label="Actual")
+plt.plot(train_series.index, train_series, label='Train')
+plt.plot(test_series.index, test_series, label='Actual')
 plt.plot(test_series.index, arima_forecast, label=f"ARIMA{best_order} Forecast")
-plt.title(f"ARIMA Forecast — {target_lang}")
+plt.title(f"ARIMA Forcast - {target_lang}")
 plt.legend(); plt.tight_layout(); plt.show()
-
