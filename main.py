@@ -522,3 +522,127 @@ for ax, r in zip(axes, multi_lang_results):
     ax.legend(fontsize=8)
 plt.tight_layout()
 plt.show()
+
+# Facebook Prophet
+def to_prophet_frame(s: pd.Series, exog: pd.Series = None) -> pd.DataFrame:
+    df = pd.DataFrame({"ds": s.index, "y": s.values})
+    if exog is not None:
+        df["campaign"] = exog.values
+    return df
+
+prophet_train = to_prophet_frame(eng_train, camp_train)
+prophet_test = to_prophet_frame(eng_test, camp_test)
+
+prophet_model = Prophet(weekly_seasonality=True, yearly_seasonality=False, daily_seasonality=False)
+prophet_model.add_regressor("campaign")
+prophet_model.fit(prophet_train)
+
+future = pd.concat([prophet_train[["ds", "campaign"]], prophet_test[["ds", "campaign"]]])
+forecast = prophet_model.predict(future)
+prophet_test_fc = forecast.set_index("ds").loc[prophet_test["ds"], "yhat"]
+
+results.append(evaluate_forecast(eng_test, prophet_test_fc.values, "Prophet (English + campaign)"))
+
+fig1 = prophet_model.plot(forecast)
+plt.title("Prophet Forecast — English Views")
+plt.tight_layout(); plt.show()
+
+fig2 = prophet_model.plot_components(forecast)
+plt.tight_layout(); plt.show()
+
+# Model Evaluation
+results_df = pd.DataFrame(results).round(3).sort_values("MAPE")
+display(results_df)
+
+best_model_name = results_df.iloc[0]["model"]
+print(f"Best model by MAPE: {best_model_name} ({results_df.iloc[0]['MAPE']:.2f}% MAPE)")
+
+fig, ax = plt.subplots(figsize=(12, 5))
+sns.barplot(data=results_df, x="model", y="MAPE", ax=ax, palette="viridis")
+ax.axhspan(4, 8, color="green", alpha=0.15, label="Target MAPE band (4-8%)")
+ax.set_title("MAPE by Model")
+ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha="right")
+ax.legend()
+plt.tight_layout()
+plt.show()
+
+# Forecast Visualizations - Actual vs Predicted, Residuals
+def plot_actual_vs_predicted(actual: pd.Series, predicted: np.ndarray, title: str):
+    fig, axes = plt.subplots(1, 2, figsize=(16, 4))
+
+    axes[0].plot(actual.index, actual, label="Actual", linewidth=2)
+    axes[0].plot(actual.index, predicted, label="Predicted", linestyle="--")
+    axes[0].set_title(f"{title} — Actual vs Predicted")
+    axes[0].legend()
+
+    residuals = np.asarray(actual) - np.asarray(predicted)
+    axes[1].scatter(actual.index, residuals, alpha=0.6)
+    axes[1].axhline(0, color="red", linestyle="--")
+    axes[1].set_title(f"{title} — Residuals over Time")
+    plt.tight_layout()
+    plt.show()
+
+    plt.figure(figsize=(6, 4))
+    sns.histplot(residuals, kde=True)
+    plt.title(f"{title} — Residual Distribution")
+    plt.tight_layout()
+    plt.show()
+
+plot_actual_vs_predicted(eng_test, sarimax_eng_fc.values, "SARIMAX (English + campaign)")
+plot_actual_vs_predicted(eng_test, prophet_test_fc.values, "Prophet (English + campaign)")
+
+# A Reusable Pipeline for Forecasting Many Series at Once
+def forecast_one_series_prophet(s: pd.Series, test_days: int) -> dict:
+    """Fit Prophet on a single series and forecast the held-out window."""
+    tr, te = s.iloc[:-test_days], s.iloc[-test_days:]
+    df = pd.DataFrame({"ds": tr.index, "y": tr.values})
+    m = Prophet(weekly_seasonality=True, yearly_seasonality=False, daily_seasonality=False)
+    m.fit(df)
+    future = m.make_future_dataframe(periods=test_days)
+    fc = m.predict(future).set_index("ds")["yhat"].loc[te.index]
+    return {"train": tr, "test": te, "forecast": fc}
+
+
+def run_forecast_pipeline(lang_pivot: pd.DataFrame, languages: list, test_days: int,
+                           model: str = "prophet") -> pd.DataFrame:
+    """Forecast every language in `languages` and return one metrics table.
+
+    Any single language that fails to fit is logged and skipped, rather than
+    crashing the whole batch -- this is what makes the pipeline safe to run
+    unattended on a schedule.
+    """
+    rows = []
+    for lang in languages:
+        try:
+            s = lang_pivot[lang].interpolate()
+            if model == "prophet":
+                r = forecast_one_series_prophet(s, test_days)
+            elif model == "arima":
+                r = forecast_language_arima(lang_pivot, lang, test_days)
+                r = {"train": r["train"], "test": r["test"], "forecast": r["forecast"]}
+            else:
+                raise ValueError(f"Unknown model: {model}")
+
+            m = evaluate_forecast(r["test"], r["forecast"], f"{model}-{lang}")
+            m["lang"] = lang
+            m["model"] = model
+            m["status"] = "ok"
+            rows.append(m)
+        except Exception as exc:
+            rows.append({"lang": lang, "model": model, "status": f"failed: {exc}",
+                         "MAE": np.nan, "RMSE": np.nan, "MAPE": np.nan, "R2": np.nan})
+    return pd.DataFrame(rows)
+
+
+pipeline_results = run_forecast_pipeline(lang_pivot, ALL_LANGUAGES, TEST_DAYS, model="prophet")
+display(pipeline_results[["lang", "model", "status", "MAE", "RMSE", "MAPE", "R2"]].round(3))
+
+plt.figure(figsize=(10, 5))
+ok_results = pipeline_results[pipeline_results["status"] == "ok"].sort_values("MAPE")
+sns.barplot(data=ok_results, x="lang", y="MAPE", color="steelblue")
+plt.axhspan(4, 8, color="green", alpha=0.15, label="Target MAPE band (4-8%)")
+plt.title("Pipeline Output: Prophet MAPE by Language")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
